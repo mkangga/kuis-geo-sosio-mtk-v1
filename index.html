@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kuis Interaktif SMA Kelas 10</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+
+    <!-- Application Structure Plan: 
+        1. Welcome Screen: Memperkenalkan kuis dan memungkinkan pengguna memilih mata pelajaran (Geografi, Sosiologi, Matematika) melalui kartu interaktif yang menarik.
+        2. Quiz Screen: Antarmuka utama kuis. Menampilkan judul subjek, progress bar, skor saat ini, teks pertanyaan, pilihan jawaban (tombol), area umpan balik (benar/salah), dan tombol "Pertanyaan Berikutnya". Struktur ini dirancang untuk fokus dan kemudahan navigasi selama kuis.
+        3. Results Screen: Menampilkan skor akhir, ringkasan performa (jumlah benar/salah), dan opsi untuk mengulang kuis subjek tersebut atau kembali ke halaman utama untuk memilih subjek lain.
+        Alur pengguna: Pilih Subjek -> Jawab Pertanyaan (dengan umpan balik) -> Lihat Hasil -> Ulangi/Pilih Subjek Baru. Desain ini mengutamakan pengalaman pengguna yang lancar dan memotivasi.
+    -->
+    <!-- Visualization & Content Choices: 
+        - Konten: Pertanyaan pilihan ganda dibuat berdasarkan materi detail sebelumnya, mencakup konsep-konsep kunci. Setiap pertanyaan memiliki 4 opsi jawaban.
+        - Umpan Balik Interaktif: 
+            - Jawaban Benar: Tombol berubah hijau, ikon centang, pesan "Benar!", suara notifikasi positif.
+            - Jawaban Salah: Tombol yang dipilih berubah merah, ikon silang, pesan "Salah!", jawaban yang benar ditandai hijau, suara notifikasi negatif. Penjelasan singkat ditampilkan untuk memperkuat pembelajaran.
+        - Progress Bar & Skor: Memberikan visualisasi kemajuan dan performa secara real-time.
+        - Tombol & Kartu: Didesain dengan efek hover dan bayangan untuk tampilan yang lebih dinamis dan menarik.
+        - Audio Feedback: Menggunakan Tone.js untuk efek suara sederhana saat menjawab benar atau salah, meningkatkan keterlibatan.
+        Pilihan ini bertujuan untuk menciptakan pengalaman kuis yang tidak hanya menguji tetapi juga mendidik dan menghibur.
+    -->
+    <style>
+        body { font-family: 'Poppins', sans-serif; background-color: #F4F7F9; color: #333D47; }
+        .quiz-container { max-width: 700px; margin: auto; }
+        .subject-card { background-color: #FFFFFF; border-radius: 12px; padding: 2rem; text-align: center; cursor: pointer; transition: transform 0.3s ease, box-shadow 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #DDE2E5; }
+        .subject-card:hover { transform: translateY(-8px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        .subject-card .icon { font-size: 3rem; margin-bottom: 1rem; }
+        .btn { padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; transition: all 0.2s ease; text-align: left; width: 100%; margin-bottom: 0.75rem; border: 1px solid transparent; }
+        .btn-primary { background-color: #4A90E2; color: white; }
+        .btn-primary:hover { background-color: #3A7BC8; }
+        .option-btn { background-color: #FFFFFF; color: #333D47; border: 1px solid #DDE2E5; display: flex; align-items: center; justify-content: space-between; }
+        .option-btn:hover { background-color: #EBF4FF; border-color: #4A90E2; }
+        .option-btn.selected { border-width: 2px; }
+        .option-btn.correct { background-color: #50C878 !important; color: white !important; border-color: #40A060 !important; }
+        .option-btn.incorrect { background-color: #E04F5F !important; color: white !important; border-color: #B33F4C !important; }
+        .feedback-text { font-size: 0.9rem; margin-top: 0.5rem; padding: 0.5rem; border-radius: 6px; }
+        .feedback-text.correct { background-color: #E6F7EB; color: #1E8E3E; }
+        .feedback-text.incorrect { background-color: #FCE8E6; color: #C9372C; }
+        #progress-bar { height: 100%; background-color: #4A90E2; border-radius: 5px; transition: width 0.3s ease; }
+        .quiz-screen-section, .results-screen-section { display: none; animation: fadeIn 0.5s ease-out; }
+        .active-section { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .icon-feedback { margin-left: 10px; }
+        .explanation-text { font-size: 0.85rem; color: #555; margin-top: 0.75rem; padding: 0.5rem; background-color: #f0f0f0; border-radius: 4px; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div id="welcome-screen" class="quiz-container text-center active-section">
+        <h1 class="text-4xl font-bold text-[#4A90E2] mb-4">Selamat Datang di Kuis Interaktif!</h1>
+        <p class="text-lg text-gray-600 mb-10">Uji pemahamanmu tentang materi SMA Kelas 10 Semester 2. Pilih mata pelajaran untuk memulai:</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="subject-card" data-subject="geografi">
+                <div class="icon" style="color: #50C878;">🌍</div>
+                <h2 class="text-2xl font-semibold text-[#50C878] mb-2">Geografi</h2>
+                <p class="text-gray-500 text-sm">Dinamika Geosfer, Peta, Mitigasi Bencana.</p>
+            </div>
+            <div class="subject-card" data-subject="sosiologi">
+                <div class="icon" style="color: #F5A623;">👥</div>
+                <h2 class="text-2xl font-semibold text-[#F5A623] mb-2">Sosiologi</h2>
+                <p class="text-gray-500 text-sm">Struktur Sosial, Interaksi, Perubahan Sosial.</p>
+            </div>
+            <div class="subject-card" data-subject="matematika">
+                <div class="icon" style="color: #E04F5F;">📐</div>
+                <h2 class="text-2xl font-semibold text-[#E04F5F] mb-2">Matematika</h2>
+                <p class="text-gray-500 text-sm">Trigonometri, Fungsi Kuadrat, Vektor.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="quiz-screen" class="quiz-container bg-white p-6 md:p-8 rounded-xl shadow-xl quiz-screen-section">
+        <div id="quiz-header" class="mb-6">
+            <div class="flex justify-between items-center mb-2">
+                <h2 id="subject-title" class="text-2xl font-bold">Nama Subjek</h2>
+                <p id="score-text" class="text-lg font-semibold text-[#4A90E2]">Skor: 0</p>
+            </div>
+            <p id="progress-text" class="text-sm text-gray-500 mb-1">Pertanyaan 1 dari 10</p>
+            <div id="progress-bar-container" class="w-full bg-[#DDE2E5] rounded-full h-2.5">
+                <div id="progress-bar" style="width: 0%;"></div>
+            </div>
+        </div>
+
+        <div id="question-container" class="mb-6">
+            <p id="question-text" class="text-lg font-medium leading-relaxed">Teks pertanyaan akan muncul di sini...</p>
+        </div>
+
+        <div id="options-container" class="grid grid-cols-1 gap-3">
+            </div>
+        
+        <div id="feedback-container" class="mt-4 min-h-[60px]">
+            <div id="feedback-text" class="feedback-text hidden"></div>
+            <div id="explanation-text" class="explanation-text hidden"></div>
+        </div>
+
+
+        <button id="next-question-btn" class="btn btn-primary w-full mt-6 hidden">Pertanyaan Berikutnya</button>
+    </div>
+
+    <div id="results-screen" class="quiz-container bg-white p-6 md:p-8 rounded-xl shadow-xl text-center results-screen-section">
+        <h2 id="results-title" class="text-3xl font-bold text-[#4A90E2] mb-4">Hasil Kuis Selesai!</h2>
+        <div id="results-icon" class="text-6xl mb-6">🎉</div>
+        <p id="final-score-text" class="text-2xl font-semibold mb-2">Skor Akhir Anda: 0</p>
+        <p id="summary-text" class="text-lg text-gray-600 mb-8">Anda menjawab X dari Y pertanyaan dengan benar.</p>
+        
+        <div class="flex flex-col sm:flex-row justify-center gap-4">
+            <button id="restart-quiz-btn" class="btn btn-primary">Ulangi Kuis Ini</button>
+            <button id="back-to-home-btn" class="btn bg-gray-200 text-gray-700 hover:bg-gray-300">Pilih Subjek Lain</button>
+        </div>
+    </div>
+
+    <script>
+        const quizData = {
+            geografi: [
+                {
+                    question: "Lapisan kulit Bumi terluar yang bersifat padat dan tersusun atas batuan serta mineral disebut...",
+                    options: ["Atmosfer", "Litosfer", "Hidrosfer", "Biosfer"],
+                    correctAnswer: 1,
+                    explanation: "Litosfer adalah lapisan batuan atau kerak Bumi terluar."
+                },
+                {
+                    question: "Proses penghancuran batuan akibat pengaruh cuaca, suhu, atau organisme disebut...",
+                    options: ["Erosi", "Sedimentasi", "Pelapukan", "Tektonisme"],
+                    correctAnswer: 2,
+                    explanation: "Pelapukan adalah proses penghancuran batuan di tempatnya."
+                },
+                {
+                    question: "Lapisan atmosfer yang mengandung ozon (O3) dan berfungsi menyerap radiasi ultraviolet adalah...",
+                    options: ["Troposfer", "Stratosfer", "Mesosfer", "Termosfer"],
+                    correctAnswer: 1,
+                    explanation: "Stratosfer adalah lapisan tempat terdapatnya ozon yang melindungi Bumi dari radiasi UV."
+                },
+                {
+                    question: "Siklus pergerakan air dari Bumi ke atmosfer dan kembali lagi ke Bumi disebut...",
+                    options: ["Siklus Batuan", "Siklus Karbon", "Siklus Hidrologi", "Siklus Nitrogen"],
+                    correctAnswer: 2,
+                    explanation: "Siklus Hidrologi adalah nama lain dari siklus air."
+                },
+                {
+                    question: "Gambaran konvensional permukaan Bumi pada bidang datar yang diperkecil dengan skala tertentu disebut...",
+                    options: ["Globe", "Atlas", "Peta", "Citra Satelit"],
+                    correctAnswer: 2,
+                    explanation: "Peta adalah representasi dua dimensi permukaan Bumi."
+                },
+                 {
+                    question: "Ilmu dan seni untuk memperoleh informasi tentang objek tanpa kontak langsung, biasanya menggunakan satelit, disebut...",
+                    options: ["Kartografi", "Penginderaan Jauh (PJ)", "Sistem Informasi Geografis (SIG)", "Geodesi"],
+                    correctAnswer: 1,
+                    explanation: "Penginderaan Jauh (PJ) menggunakan sensor untuk mengumpulkan data dari jarak jauh."
+                },
+                {
+                    question: "Upaya mengurangi risiko bencana melalui pembangunan fisik seperti membuat tanggul atau rumah tahan gempa disebut mitigasi...",
+                    options: ["Non-Struktural", "Adaptif", "Struktural", "Responsif"],
+                    correctAnswer: 2,
+                    explanation: "Mitigasi Struktural melibatkan pembangunan fisik untuk mengurangi dampak bencana."
+                }
+            ],
+            sosiologi: [
+                {
+                    question: "Posisi atau kedudukan seseorang dalam suatu kelompok sosial disebut...",
+                    options: ["Peran Sosial", "Status Sosial", "Norma Sosial", "Nilai Sosial"],
+                    correctAnswer: 1,
+                    explanation: "Status sosial adalah posisi seseorang dalam masyarakat."
+                },
+                {
+                    question: "Stratifikasi sosial di mana individu sulit atau tidak mungkin berpindah kelas sosial disebut stratifikasi...",
+                    options: ["Terbuka", "Campuran", "Tertutup", "Meritokrasi"],
+                    correctAnswer: 2,
+                    explanation: "Stratifikasi tertutup, seperti sistem kasta, sangat membatasi mobilitas sosial."
+                },
+                {
+                    question: "Proses peleburan dua kebudayaan atau lebih menjadi satu kebudayaan baru di mana ciri khas masing-masing budaya asli mulai hilang disebut...",
+                    options: ["Akulturasi", "Asimilasi", "Akomodasi", "Kerja Sama"],
+                    correctAnswer: 1,
+                    explanation: "Asimilasi menghasilkan budaya baru yang merupakan peleburan dari budaya-budaya asal."
+                },
+                {
+                    question: "Bentuk interaksi sosial yang bertujuan meredakan konflik atau mencapai keseimbangan antara pihak-pihak yang bertentangan adalah...",
+                    options: ["Kompetisi", "Kontravensi", "Akomodasi", "Konflik"],
+                    correctAnswer: 2,
+                    explanation: "Akomodasi adalah proses penyesuaian untuk menyelesaikan konflik."
+                },
+                {
+                    question: "Teori perubahan sosial yang memandang bahwa masyarakat berkembang dari bentuk sederhana menuju bentuk yang lebih kompleks secara bertahap adalah teori...",
+                    options: ["Siklus", "Konflik", "Fungsional", "Evolusi"],
+                    correctAnswer: 3,
+                    explanation: "Teori Evolusi melihat perubahan sosial sebagai perkembangan linear menuju kompleksitas."
+                }
+            ],
+            matematika: [
+                {
+                    question: "Dalam segitiga siku-siku, perbandingan antara sisi depan sudut dengan sisi miring disebut...",
+                    options: ["Cosinus", "Tangen", "Sinus", "Cotangen"],
+                    correctAnswer: 2,
+                    explanation: "Sinus (sin) adalah perbandingan sisi depan dengan sisi miring."
+                },
+                {
+                    question: "Nilai dari cos(60°) adalah...",
+                    options: ["1/2", "√3/2", "√2/2", "1"],
+                    correctAnswer: 0,
+                    explanation: "Nilai cosinus untuk sudut istimewa 60° adalah 1/2."
+                },
+                {
+                    question: "Identitas trigonometri dasar yang menghubungkan sin²α dan cos²α adalah...",
+                    options: ["sin²α - cos²α = 1", "sin²α + cos²α = 1", "sin²α × cos²α = 1", "sin²α / cos²α = 1"],
+                    correctAnswer: 1,
+                    explanation: "Identitas Pythagoras dalam trigonometri adalah sin²α + cos²α = 1."
+                },
+                {
+                    question: "Grafik fungsi kuadrat y = ax² + bx + c akan terbuka ke atas jika...",
+                    options: ["a < 0", "a = 0", "a > 0", "b < 0"],
+                    correctAnswer: 2,
+                    explanation: "Jika koefisien a positif (a > 0), parabola fungsi kuadrat terbuka ke atas."
+                },
+                {
+                    question: "Besaran yang memiliki nilai dan arah disebut...",
+                    options: ["Skalar", "Vektor", "Matriks", "Variabel"],
+                    correctAnswer: 1,
+                    explanation: "Vektor adalah besaran yang didefinisikan oleh nilai (besar) dan arahnya."
+                }
+            ]
+        };
+
+        let currentSubject = '';
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let questions = [];
+        let answerSelected = false;
+
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const quizScreen = document.getElementById('quiz-screen');
+        const resultsScreen = document.getElementById('results-screen');
+
+        const subjectTitleEl = document.getElementById('subject-title');
+        const progressTextEl = document.getElementById('progress-text');
+        const progressBarEl = document.getElementById('progress-bar');
+        const scoreTextEl = document.getElementById('score-text');
+        const questionTextEl = document.getElementById('question-text');
+        const optionsContainerEl = document.getElementById('options-container');
+        const feedbackTextEl = document.getElementById('feedback-text');
+        const explanationTextEl = document.getElementById('explanation-text');
+        const nextQuestionBtn = document.getElementById('next-question-btn');
+        
+        const resultsTitleEl = document.getElementById('results-title');
+        const finalScoreTextEl = document.getElementById('final-score-text');
+        const summaryTextEl = document.getElementById('summary-text');
+        const resultsIconEl = document.getElementById('results-icon');
+        const restartQuizBtn = document.getElementById('restart-quiz-btn');
+        const backToHomeBtn = document.getElementById('back-to-home-btn');
+
+        // Sound effects
+        const correctSound = new Tone.Synth({
+            oscillator: { type: "sine" },
+            envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 0.1 }
+        }).toDestination();
+        const incorrectSound = new Tone.Synth({
+            oscillator: { type: "square" },
+            envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 0.1 }
+        }).toDestination();
+
+
+        document.querySelectorAll('.subject-card').forEach(card => {
+            card.addEventListener('click', () => {
+                currentSubject = card.dataset.subject;
+                questions = shuffleArray([...quizData[currentSubject]]); // Shuffle questions for variety
+                startQuiz();
+            });
+        });
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function startQuiz() {
+            currentQuestionIndex = 0;
+            score = 0;
+            answerSelected = false;
+            welcomeScreen.classList.remove('active-section');
+            resultsScreen.classList.remove('active-section');
+            quizScreen.classList.add('active-section');
+            
+            subjectTitleEl.textContent = currentSubject.charAt(0).toUpperCase() + currentSubject.slice(1);
+            updateScoreDisplay();
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            answerSelected = false;
+            const currentQuestion = questions[currentQuestionIndex];
+            questionTextEl.textContent = currentQuestion.question;
+            optionsContainerEl.innerHTML = '';
+            feedbackTextEl.classList.add('hidden');
+            explanationTextEl.classList.add('hidden');
+            explanationTextEl.textContent = '';
+            nextQuestionBtn.classList.add('hidden');
+
+            currentQuestion.options.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.classList.add('btn', 'option-btn');
+                button.innerHTML = `<span>${option}</span> <span class="icon-feedback"></span>`;
+                button.addEventListener('click', () => selectAnswer(index, button));
+                optionsContainerEl.appendChild(button);
+            });
+
+            updateProgress();
+        }
+
+        function selectAnswer(selectedIndex, selectedButton) {
+            if (answerSelected) return;
+            answerSelected = true;
+            Tone.start(); // Ensure audio context is started
+
+            const currentQuestion = questions[currentQuestionIndex];
+            const correct = selectedIndex === currentQuestion.correctAnswer;
+
+            const allOptionBtns = optionsContainerEl.querySelectorAll('.option-btn');
+            allOptionBtns.forEach(btn => btn.disabled = true); // Disable all options
+
+            selectedButton.classList.add('selected');
+            const iconFeedbackEl = selectedButton.querySelector('.icon-feedback');
+
+            if (correct) {
+                score++;
+                selectedButton.classList.add('correct');
+                if(iconFeedbackEl) iconFeedbackEl.innerHTML = '<i class="fas fa-check-circle"></i>';
+                feedbackTextEl.textContent = "Benar Sekali!";
+                feedbackTextEl.className = 'feedback-text correct';
+                correctSound.triggerAttackRelease("C5", "8n");
+            } else {
+                selectedButton.classList.add('incorrect');
+                if(iconFeedbackEl) iconFeedbackEl.innerHTML = '<i class="fas fa-times-circle"></i>';
+                feedbackTextEl.textContent = "Kurang Tepat.";
+                feedbackTextEl.className = 'feedback-text incorrect';
+                incorrectSound.triggerAttackRelease("C3", "8n", Tone.now(), 0.5);
+
+                // Highlight correct answer
+                const correctButton = optionsContainerEl.children[currentQuestion.correctAnswer];
+                correctButton.classList.add('correct');
+                 const correctIconEl = correctButton.querySelector('.icon-feedback');
+                if(correctIconEl) correctIconEl.innerHTML = '<i class="fas fa-check-circle"></i>';
+            }
+            
+            if (currentQuestion.explanation) {
+                explanationTextEl.textContent = `Penjelasan: ${currentQuestion.explanation}`;
+                explanationTextEl.classList.remove('hidden');
+            }
+
+            feedbackTextEl.classList.remove('hidden');
+            updateScoreDisplay();
+            nextQuestionBtn.classList.remove('hidden');
+        }
+
+        function updateProgress() {
+            progressTextEl.textContent = `Pertanyaan ${currentQuestionIndex + 1} dari ${questions.length}`;
+            const progressPercentage = ((currentQuestionIndex + 1) / questions.length) * 100;
+            progressBarEl.style.width = `${progressPercentage}%`;
+        }
+
+        function updateScoreDisplay() {
+            scoreTextEl.textContent = `Skor: ${score}`;
+        }
+
+        nextQuestionBtn.addEventListener('click', () => {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                loadQuestion();
+            } else {
+                showResults();
+            }
+        });
+
+        function showResults() {
+            quizScreen.classList.remove('active-section');
+            resultsScreen.classList.add('active-section');
+
+            resultsTitleEl.textContent = `Hasil Kuis ${currentSubject.charAt(0).toUpperCase() + currentSubject.slice(1)} Selesai!`;
+            finalScoreTextEl.textContent = `Skor Akhir Anda: ${score}`;
+            summaryTextEl.textContent = `Anda menjawab ${score} dari ${questions.length} pertanyaan dengan benar.`;
+
+            if (score / questions.length >= 0.8) {
+                resultsIconEl.textContent = "🏆"; // Gold trophy
+            } else if (score / questions.length >= 0.5) {
+                resultsIconEl.textContent = "👍"; // Thumbs up
+            } else {
+                resultsIconEl.textContent = "📚"; // Books for more study
+            }
+        }
+
+        restartQuizBtn.addEventListener('click', () => {
+            startQuiz(); // Restart with the same subject
+        });
+
+        backToHomeBtn.addEventListener('click', () => {
+            resultsScreen.classList.remove('active-section');
+            welcomeScreen.classList.add('active-section');
+        });
+
+    </script>
+</body>
+</html>
